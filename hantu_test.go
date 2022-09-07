@@ -18,14 +18,20 @@ func TestWorkerStart(t *testing.T) {
 		Max:    7,
 		TTL:    5 * time.Second,
 	})
-	bgworker.Worker().Register("test", context.Background(), func(ctx context.Context, request interface{}) (interface{}, error) {
-		for i := 0; i < 10000000000; i++ {
-			//do nothing
-		}
-		t.Log("Processing : " + request.(string))
-		wg.Done()
-		return nil, nil
-	})
+	bgworker.Worker().Register("test",
+		context.Background(),
+		func(ctx context.Context, id string, request interface{}) error {
+			for i := 0; i < 10000000000; i++ {
+				//do nothing
+			}
+			t.Log("Processing : " + request.(string))
+			wg.Done()
+			return nil
+		},
+		func(ctx context.Context, request []schema.Job) error {
+			return nil
+		},
+	)
 	bgworker.Worker().Start()
 	bgworker.Queue(schema.Job{
 		Id:      "1",

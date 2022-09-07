@@ -11,18 +11,19 @@ import (
 	"github.com/hashicorp/go-memdb"
 )
 
-type Command func(ctx context.Context, request interface{}) (interface{}, error)
-
+type Command func(ctx context.Context, id string, request interface{}) error
+type Checksum func(ctx context.Context, jobs []schema.Job) error
 type c struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	cmd    Command
+	ctx      context.Context
+	cancel   context.CancelFunc
+	cmd      Command
+	checksum Checksum
 }
 
 type Worker interface {
 	Start()
 	Stop()
-	Register(name string, ctx context.Context, cmd Command)
+	Register(name string, ctx context.Context, cmd Command, checksum Checksum)
 }
 
 func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB, scheduler scheduler.Scheduler) Worker {
@@ -49,12 +50,13 @@ type worker struct {
 	scheduler scheduler.Scheduler
 }
 
-func (w *worker) Register(name string, ctx context.Context, cmd Command) {
+func (w *worker) Register(name string, ctx context.Context, cmd Command, checksum Checksum) {
 	ctx, cancel := context.WithCancel(ctx)
 	w.commands[name] = c{
-		ctx:    ctx,
-		cmd:    cmd,
-		cancel: cancel,
+		ctx:      ctx,
+		cmd:      cmd,
+		cancel:   cancel,
+		checksum: checksum,
 	}
 }
 
@@ -90,17 +92,17 @@ func (w *worker) checksum(interval time.Duration) {
 				if err := w.scheduler.Active(); err == nil {
 					tx := w.inmem.Snapshot().Txn(false)
 					it, _ := tx.Get("job", "id")
-					processor := make(map[string][]interface{})
+					processor := make(map[string][]schema.Job)
 					for obj := it.Next(); obj != nil; obj = it.Next() {
 						current := obj.(*schema.Job)
 						if len(processor[current.Cheksum]) == 0 {
-							processor[current.Cheksum] = make([]interface{}, 0)
+							processor[current.Cheksum] = make([]schema.Job, 0)
 						}
-						processor[current.Cheksum] = append(processor[current.Cheksum], current.Request)
+						processor[current.Cheksum] = append(processor[current.Cheksum], *current)
 					}
 					tx.Abort()
 					for checksum_func, pending := range processor {
-						w.commands[checksum_func].cmd(
+						w.commands[checksum_func].checksum(
 							w.commands[checksum_func].ctx,
 							pending,
 						)
@@ -158,7 +160,9 @@ func (w *worker) run() {
 			if len(w.queue) > 0 {
 				go func(data chan *schema.Job) {
 					current := <-data
-					w.commands[current.Name].cmd(w.commands[current.Name].ctx, current.Request)
+					if current != nil {
+						w.commands[current.Name].cmd(w.commands[current.Name].ctx, current.Id, current.Request)
+					}
 				}(w.queue)
 			}
 		}
