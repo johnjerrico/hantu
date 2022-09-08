@@ -23,7 +23,7 @@ type c struct {
 type Worker interface {
 	Start()
 	Stop()
-	Register(name string, ctx context.Context, cmd Command, checksum Checksum)
+	Register(name string, cmd Command, checksum Checksum)
 }
 
 func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB, scheduler scheduler.Scheduler) Worker {
@@ -50,8 +50,8 @@ type worker struct {
 	scheduler scheduler.Scheduler
 }
 
-func (w *worker) Register(name string, ctx context.Context, cmd Command, checksum Checksum) {
-	ctx, cancel := context.WithCancel(ctx)
+func (w *worker) Register(name string, cmd Command, checksum Checksum) {
+	ctx, cancel := context.WithCancel(context.Background())
 	w.commands[name] = c{
 		ctx:      ctx,
 		cmd:      cmd,

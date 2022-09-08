@@ -19,7 +19,6 @@ func TestWorkerStart(t *testing.T) {
 		TTL:    5 * time.Second,
 	})
 	bgworker.Worker().Register("test",
-		context.Background(),
 		func(ctx context.Context, id string, request interface{}) error {
 			for i := 0; i < 10000000000; i++ {
 				//do nothing
