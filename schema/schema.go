@@ -5,7 +5,7 @@ import "github.com/hashicorp/go-memdb"
 type Job struct {
 	Id               string
 	Name             string
-	Cheksum          string
+	Checksum         string
 	Request          string
 	RequestTimestamp string
 	Timestamp        string

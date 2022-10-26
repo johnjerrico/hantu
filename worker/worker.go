@@ -12,52 +12,49 @@ import (
 )
 
 type Command func(ctx context.Context, id string, request interface{}) error
-type Checksum func(ctx context.Context, jobs []schema.Job) error
-type c struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	cmd      Command
-	checksum Checksum
-}
+type Checksum func(ctx context.Context, jobs []schema.Job) (shouldCancelled []string, err error)
 
 type Worker interface {
 	Start()
 	Stop()
-	Register(name string, cmd Command, checksum Checksum)
+	RegisterCommand(name string, cmd Command)
+	RegisterChecksum(name string, checksum Checksum)
 }
 
 func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB, scheduler scheduler.Scheduler) Worker {
 	return &worker{
-		max:       max,
-		interval:  interval,
-		commands:  make(map[string]c),
-		queue:     make(chan *schema.Job, max),
-		exit:      make(chan byte),
-		inmem:     inmem,
-		scheduler: scheduler,
+		max:          max,
+		interval:     interval,
+		commands:     make(map[string]Command),
+		checksums:    make(map[string]Checksum),
+		queue:        make(chan *schema.Job, max),
+		exit:         make(chan byte),
+		cancel_funcs: make(map[string]context.CancelFunc),
+		inmem:        inmem,
+		scheduler:    scheduler,
 	}
 }
 
 type worker struct {
-	id        string
-	domain    string
-	max       int
-	interval  time.Duration
-	commands  map[string]c
-	queue     chan *schema.Job
-	exit      chan byte
-	inmem     *memdb.MemDB
-	scheduler scheduler.Scheduler
+	id           string
+	domain       string
+	max          int
+	interval     time.Duration
+	commands     map[string]Command
+	checksums    map[string]Checksum
+	queue        chan *schema.Job
+	exit         chan byte
+	cancel_funcs map[string]context.CancelFunc
+	inmem        *memdb.MemDB
+	scheduler    scheduler.Scheduler
 }
 
-func (w *worker) Register(name string, cmd Command, checksum Checksum) {
-	ctx, cancel := context.WithCancel(context.Background())
-	w.commands[name] = c{
-		ctx:      ctx,
-		cmd:      cmd,
-		cancel:   cancel,
-		checksum: checksum,
-	}
+func (w *worker) RegisterCommand(name string, cmd Command) {
+	w.commands[name] = cmd
+}
+
+func (w *worker) RegisterChecksum(name string, checksum Checksum) {
+	w.checksums[name] = checksum
 }
 
 func (w *worker) Start() {
@@ -68,11 +65,12 @@ func (w *worker) Start() {
 }
 
 func (w *worker) Stop() {
-	w.exit <- byte('1')
 	close(w.queue)
-	for _, item := range w.commands {
-		item.cancel()
+	w.exit <- byte('1')
+	for _, item := range w.cancel_funcs {
+		item()
 	}
+
 }
 
 func (w *worker) checksum(interval time.Duration) {
@@ -92,20 +90,34 @@ func (w *worker) checksum(interval time.Duration) {
 				if err := w.scheduler.Active(); err == nil {
 					tx := w.inmem.Snapshot().Txn(false)
 					it, _ := tx.Get("job", "id")
-					processor := make(map[string][]schema.Job)
+					tobeProcessed := make(map[string][]schema.Job)
+					index := make(map[string]schema.Job)
 					for obj := it.Next(); obj != nil; obj = it.Next() {
 						current := obj.(*schema.Job)
-						if len(processor[current.Cheksum]) == 0 {
-							processor[current.Cheksum] = make([]schema.Job, 0)
+						if len(tobeProcessed[current.Checksum]) == 0 {
+							tobeProcessed[current.Checksum] = make([]schema.Job, 0)
 						}
-						processor[current.Cheksum] = append(processor[current.Cheksum], *current)
+						index[current.Id] = *current
+						tobeProcessed[current.Checksum] = append(tobeProcessed[current.Checksum], *current)
 					}
 					tx.Abort()
-					for checksum_func, pending := range processor {
-						w.commands[checksum_func].checksum(
-							w.commands[checksum_func].ctx,
+					for checksum_func, pending := range tobeProcessed {
+						shouldBeCancelled, err := w.checksums[checksum_func](
+							context.Background(),
 							pending,
 						)
+						if err == nil {
+							writeTx := w.inmem.Txn(true)
+							for _, job := range shouldBeCancelled {
+								current := index[job]
+								writeTx.Delete("job", current)
+								writeTx.Commit()
+								w.cancel_funcs[job]()
+								w.cancel_funcs[job] = nil
+							}
+						} else {
+							fmt.Println(err.Error())
+						}
 					}
 					w.scheduler.Sleep()
 				}
@@ -130,7 +142,7 @@ func (w *worker) spawn() {
 					copy := schema.Job{
 						Id:               current.Id,
 						Name:             current.Name,
-						Cheksum:          current.Cheksum,
+						Checksum:         current.Checksum,
 						Request:          current.Request,
 						RequestTimestamp: current.RequestTimestamp,
 						Timestamp:        current.Timestamp,
@@ -159,9 +171,11 @@ func (w *worker) run() {
 		default:
 			if len(w.queue) > 0 {
 				go func(data chan *schema.Job) {
-					current := <-data
+					current := <-w.queue
 					if current != nil {
-						w.commands[current.Name].cmd(w.commands[current.Name].ctx, current.Id, current.Request)
+						ctx, cancel_func := context.WithCancel(context.Background())
+						w.cancel_funcs[current.Id] = cancel_func
+						w.commands[current.Name](ctx, current.Id, current.Request)
 					}
 				}(w.queue)
 			}
