@@ -65,7 +65,17 @@ func (w *server) Dequeue(job schema.Job) error {
 
 func (w *server) Queue(job schema.Job) error {
 	tx := w.inmem.Txn(true)
-	err := tx.Insert("job", &job)
+	copy := schema.Job{
+		Id:               job.Id,
+		Name:             job.Name,
+		Checksum:         job.Checksum,
+		Request:          job.Request,
+		RequestTimestamp: job.RequestTimestamp,
+		Timestamp:        job.Timestamp,
+		Status:           job.Status,
+		Details:          job.Details,
+	}
+	err := tx.Insert("job", &copy)
 	tx.Commit()
 	return err
 }

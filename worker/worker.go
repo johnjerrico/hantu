@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-memdb"
 	"github.com/johnjerrico/hantu/scheduler"
 	"github.com/johnjerrico/hantu/schema"
-
-	"github.com/hashicorp/go-memdb"
+	"github.com/korovkin/limiter"
 )
 
 type Command func(ctx context.Context, id string, request interface{}) error
-type Checksum func(ctx context.Context, jobs []schema.Job) (shouldCancelled []string, err error)
+type Checksum func(ctx context.Context, name string, jobs []schema.Job) (shouldRun []schema.Job, shouldCancel []schema.Job, err error)
 
 type Worker interface {
 	Start()
@@ -27,7 +27,6 @@ func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB,
 		interval:     interval,
 		commands:     make(map[string]Command),
 		checksums:    make(map[string]Checksum),
-		queue:        make(chan *schema.Job, max),
 		exit:         make(chan byte),
 		cancel_funcs: make(map[string]context.CancelFunc),
 		inmem:        inmem,
@@ -42,7 +41,6 @@ type worker struct {
 	interval     time.Duration
 	commands     map[string]Command
 	checksums    map[string]Checksum
-	queue        chan *schema.Job
 	exit         chan byte
 	cancel_funcs map[string]context.CancelFunc
 	inmem        *memdb.MemDB
@@ -61,15 +59,24 @@ func (w *worker) Start() {
 	w.scheduler.Register(w.domain, w.id)
 	w.checksum(w.interval)
 	go w.spawn()
-	go w.run()
 }
 
 func (w *worker) Stop() {
-	close(w.queue)
-	w.exit <- byte('1')
-	for _, item := range w.cancel_funcs {
-		item()
+	tx := w.inmem.Snapshot().Txn(false)
+	it, _ := tx.Get("job", "id")
+	for obj := it.Next(); obj != nil; obj = it.Next() {
+		current := obj.(*schema.Job)
+		writeTx := w.inmem.Txn(true)
+		writeTx.Delete("job", current)
+		writeTx.Commit()
 	}
+	tx.Abort()
+	for _, item := range w.cancel_funcs {
+		if item != nil {
+			item()
+		}
+	}
+	w.exit <- byte('1')
 
 }
 
@@ -101,68 +108,84 @@ func (w *worker) checksum(interval time.Duration) {
 						tobeProcessed[current.Checksum] = append(tobeProcessed[current.Checksum], *current)
 					}
 					tx.Abort()
-					for checksum_func, pending := range tobeProcessed {
-						shouldBeCancelled, err := w.checksums[checksum_func](
+					//for checksum_func, pending := range tobeProcessed {
+					for name, checksum_func := range w.checksums {
+						shouldRun, shouldCancel, err := checksum_func(
 							context.Background(),
-							pending,
+							name,
+							tobeProcessed[name],
 						)
-						if err == nil {
-							writeTx := w.inmem.Txn(true)
-							for _, job := range shouldBeCancelled {
-								current := index[job]
-								writeTx.Delete("job", current)
-								writeTx.Commit()
-								w.cancel_funcs[job]()
-								w.cancel_funcs[job] = nil
-							}
-						} else {
+						if err != nil {
 							fmt.Println(err.Error())
+						} else {
+							writeTx := w.inmem.Txn(true)
+							if len(shouldCancel) > 0 {
+								for _, job := range shouldCancel {
+									current := index[job.Id]
+									writeTx.Delete("job", current)
+									w.cancel_funcs[job.Id]()
+									w.cancel_funcs[job.Id] = nil
+								}
+							}
+							if len(shouldRun) > 0 {
+								for _, job := range shouldRun {
+									copy := schema.Job{
+										Id:               job.Id,
+										Name:             job.Name,
+										Checksum:         job.Checksum,
+										Request:          job.Request,
+										RequestTimestamp: job.RequestTimestamp,
+										Timestamp:        job.Timestamp,
+										Status:           job.Status,
+										Details:          job.Details,
+									}
+									if err := writeTx.Insert("job", &copy); err != nil {
+										fmt.Println(err)
+									}
+								}
+							}
+							writeTx.Commit()
 						}
 					}
 					w.scheduler.Sleep()
 				}
 			}
+			time.Sleep(time.Millisecond)
 		}
 	}()
 }
 
 func (w *worker) spawn() {
+	var c *limiter.ConcurrencyLimiter
 	for {
 		select {
 		case <-w.exit:
 			return
 		default:
-			n := len(w.queue)
-			shouldrun := n < w.max
-			if shouldrun {
-				tx := w.inmem.Snapshot().Txn(false)
-				it, _ := tx.Get("job", "id")
-				for obj := it.Next(); obj != nil; obj = it.Next() {
-					current := obj.(*schema.Job)
-					copy := schema.Job{
-						Id:               current.Id,
-						Name:             current.Name,
-						Checksum:         current.Checksum,
-						Request:          current.Request,
-						RequestTimestamp: current.RequestTimestamp,
-						Timestamp:        current.Timestamp,
-						Status:           current.Status,
-						Details:          current.Details,
-					}
-					writeTx := w.inmem.Txn(true)
-					writeTx.Delete("job", current)
-					writeTx.Commit()
-					w.queue <- &copy
-				}
-				tx.Abort()
-			} else {
-				fmt.Print("sleep")
-				w.scheduler.Sleep()
+			c = limiter.NewConcurrencyLimiter(w.max)
+			tx := w.inmem.Snapshot().Txn(false)
+			it, _ := tx.Get("job", "id")
+			for obj := it.Next(); obj != nil; obj = it.Next() {
+				current := obj.(*schema.Job)
+				writeTx := w.inmem.Txn(true)
+				writeTx.Delete("job", current)
+				writeTx.Commit()
+				//w.queue <- &copy
+				c.Execute(func() {
+					ctx, cancel_func := context.WithCancel(context.Background())
+					w.cancel_funcs[current.Id] = cancel_func
+					w.commands[current.Name](ctx, current.Id, current.Request)
+					w.cancel_funcs[current.Id] = nil
+				})
 			}
+			c.WaitAndClose()
+			tx.Abort()
 		}
+		time.Sleep(time.Millisecond)
 	}
 }
 
+/*
 func (w *worker) run() {
 	for {
 		select {
@@ -183,3 +206,4 @@ func (w *worker) run() {
 	}
 
 }
+*/
