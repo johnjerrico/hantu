@@ -172,7 +172,6 @@ func (w *worker) spawn() {
 				writeTx := w.inmem.Txn(true)
 				writeTx.Delete("job", current)
 				writeTx.Commit()
-				//w.queue <- &copy
 				c.Execute(func() {
 					ctx, cancel_func := context.WithCancel(context.Background())
 					w.cancel_funcs[current.Id] = cancel_func
@@ -186,26 +185,3 @@ func (w *worker) spawn() {
 		time.Sleep(time.Millisecond)
 	}
 }
-
-/*
-func (w *worker) run() {
-	for {
-		select {
-		case <-w.exit:
-			return
-		default:
-			if len(w.queue) > 0 {
-				go func(data chan *schema.Job) {
-					current := <-w.queue
-					if current != nil {
-						ctx, cancel_func := context.WithCancel(context.Background())
-						w.cancel_funcs[current.Id] = cancel_func
-						w.commands[current.Name](ctx, current.Id, current.Request)
-					}
-				}(w.queue)
-			}
-		}
-	}
-
-}
-*/
