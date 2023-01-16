@@ -2,9 +2,6 @@ package redis
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	r "github.com/gomodule/redigo/redis"
@@ -17,12 +14,12 @@ type Redis interface {
 	SetData(key string, value []byte, ttl ...int64) (err error)
 	Delete(key string) error
 	HDelete(hash, field string) error
+	Close() error
 }
 
 func New(host string, port string, ttl uint64) Redis {
 	redisConnInfo := fmt.Sprintf("%s:%s", host, port)
 	pool := initiatePool(redisConnInfo)
-	cleanupHook(pool)
 	return &redis{
 		Pool: pool,
 		ttl:  ttl,
@@ -53,18 +50,8 @@ func initiatePool(server string) *r.Pool {
 		},
 	}
 }
-
-func cleanupHook(pool *r.Pool) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
-	//SIGKILL cannot be trapped
-	//signal.Notify(c, syscall.SIGKILL)
-	go func() {
-		<-c
-		pool.Close()
-		os.Exit(0)
-	}()
+func (store *redis) Close() error {
+	return store.Pool.Close()
 }
 
 func (store *redis) HGetData(hash, field string) ([]byte, error) {

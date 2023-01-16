@@ -62,6 +62,12 @@ func (w *worker) Start() {
 }
 
 func (w *worker) Stop() {
+
+	for _, item := range w.cancel_funcs {
+		if item != nil {
+			item()
+		}
+	}
 	tx := w.inmem.Snapshot().Txn(false)
 	it, _ := tx.Get("job", "id")
 	for obj := it.Next(); obj != nil; obj = it.Next() {
@@ -71,11 +77,7 @@ func (w *worker) Stop() {
 		writeTx.Commit()
 	}
 	tx.Abort()
-	for _, item := range w.cancel_funcs {
-		if item != nil {
-			item()
-		}
-	}
+	w.scheduler.Shutdown()
 	w.exit <- byte('1')
 
 }

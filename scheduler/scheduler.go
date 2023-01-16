@@ -14,6 +14,7 @@ type Scheduler interface {
 	Active() error
 	Sleep() error
 	Retire() error
+	Shutdown() error
 }
 
 func New(host, port string, ttl uint64) Scheduler {
@@ -166,4 +167,8 @@ func (e *roundrobin) Retire() error {
 		return err
 	}
 	return nil
+}
+
+func (e *roundrobin) Shutdown() error {
+	return e.con.Close()
 }
