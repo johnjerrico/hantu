@@ -170,5 +170,8 @@ func (e *roundrobin) Retire() error {
 }
 
 func (e *roundrobin) Shutdown() error {
-	return e.con.Close()
+	if e.con != nil {
+		return e.con.Close()
+	}
+	return nil
 }

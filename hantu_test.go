@@ -19,13 +19,12 @@ func TestWorkerStart(t *testing.T) {
 		TTL:    5 * time.Second,
 	})
 	bgworker.Worker().RegisterCommand("test",
-		func(ctx context.Context, id string, request interface{}) error {
+		func(ctx context.Context, request interface{}) {
 			for i := 0; i < 10000000000; i++ {
 				//do nothing
 			}
 			t.Log("Processing : " + request.(string))
 			wg.Done()
-			return nil
 		},
 	)
 	bgworker.Worker().Start()
@@ -74,16 +73,13 @@ func TestWorkerCancel(t *testing.T) {
 		Interval: 3 * time.Second,
 	})
 	bgworker.Worker().RegisterCommand("test",
-		func(ctx context.Context, id string, request interface{}) error {
+		func(ctx context.Context, request interface{}) {
 			select {
 			case <-ctx.Done():
-				return nil
+				return
 			default:
 				time.Sleep(20 * time.Second)
-
 				t.Log("Processing : " + request.(string))
-				//wg.Done()
-				return nil
 			}
 
 		},
@@ -142,16 +138,14 @@ func TestWorkerChecksum(t *testing.T) {
 		Interval: 1 * time.Second,
 	})
 	bgworker.Worker().RegisterCommand("test",
-		func(ctx context.Context, id string, request interface{}) error {
+		func(ctx context.Context, request interface{}) {
 			select {
 			case <-ctx.Done():
 				wg.Done()
-				return nil
 			default:
-				t.Log("Processing : " + id + " -> " + request.(string))
+				t.Log("Processing : " + " -> " + request.(string))
 				time.Sleep(10 * time.Second)
 				wg.Done()
-				return nil
 			}
 
 		},

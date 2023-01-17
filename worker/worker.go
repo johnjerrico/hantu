@@ -11,7 +11,7 @@ import (
 	"github.com/korovkin/limiter"
 )
 
-type Command func(ctx context.Context, id string, request interface{}) error
+type Command func(ctx context.Context, request interface{})
 type Checksum func(ctx context.Context, name string, jobs []schema.Job) (shouldRun []schema.Job, shouldCancel []schema.Job, err error)
 
 type Worker interface {
@@ -175,7 +175,7 @@ func (w *worker) spawn() {
 				c.Execute(func() {
 					ctx, cancel_func := context.WithCancel(context.Background())
 					w.cancel_funcs[current.Id] = cancel_func
-					w.commands[current.Name](ctx, current.Id, current.Request)
+					w.commands[current.Name](ctx, current.Request)
 					w.cancel_funcs[current.Id] = nil
 				})
 			}
