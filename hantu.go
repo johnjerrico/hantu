@@ -33,6 +33,8 @@ type server struct {
 	w     worker.Worker
 }
 
+var instance Server
+
 func New(opt Option) Server {
 	db, err := memdb.NewMemDB(schema.Schema())
 	if err != nil {
@@ -52,6 +54,13 @@ func New(opt Option) Server {
 		opt:   opt,
 	}
 }
+func Singleton(opt Option) Server {
+	if instance == nil {
+		instance = New(opt)
+	}
+	return instance
+}
+
 func (w *server) Worker() worker.Worker {
 	return w.w
 }
