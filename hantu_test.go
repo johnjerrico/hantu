@@ -2,6 +2,7 @@ package hantu
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -23,7 +24,7 @@ func TestWorkerStart(t *testing.T) {
 			for i := 0; i < 10000000000; i++ {
 				//do nothing
 			}
-			t.Log("Processing : " + request.(string))
+			t.Log("Processing : " + fmt.Sprintf("%v", request))
 			wg.Done()
 		},
 	)
@@ -79,7 +80,7 @@ func TestWorkerCancel(t *testing.T) {
 				return
 			default:
 				time.Sleep(20 * time.Second)
-				t.Log("Processing : " + request.(string))
+				t.Log("Processing : " + fmt.Sprintf("%v", request))
 			}
 
 		},
@@ -143,7 +144,7 @@ func TestWorkerChecksum(t *testing.T) {
 			case <-ctx.Done():
 				wg.Done()
 			default:
-				t.Log("Processing : " + " -> " + request.(string))
+				t.Log("Processing : " + " -> " + fmt.Sprintf("%v", request))
 				time.Sleep(10 * time.Second)
 				wg.Done()
 			}
