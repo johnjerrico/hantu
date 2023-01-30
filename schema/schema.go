@@ -6,11 +6,10 @@ type Job struct {
 	Id               string
 	Name             string
 	Checksum         string
-	Request          string
+	Request          interface{}
 	RequestTimestamp string
 	Timestamp        string
 	Status           string
-	Details          string
 }
 
 func Schema() *memdb.DBSchema {

@@ -139,7 +139,6 @@ func (w *worker) checksum(interval time.Duration) {
 										RequestTimestamp: job.RequestTimestamp,
 										Timestamp:        job.Timestamp,
 										Status:           job.Status,
-										Details:          job.Details,
 									}
 									if err := writeTx.Insert("job", &copy); err != nil {
 										fmt.Println(err)
