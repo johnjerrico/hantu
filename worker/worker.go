@@ -174,7 +174,7 @@ func (w *worker) spawn() {
 				c.Execute(func() {
 					ctx, cancel_func := context.WithCancel(context.Background())
 					w.cancel_funcs[current.Id] = cancel_func
-					w.commands[current.Name](ctx, current.Request)
+					w.commands[current.Name](ctx, current)
 					w.cancel_funcs[current.Id] = nil
 				})
 			}
