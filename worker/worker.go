@@ -139,7 +139,6 @@ func (w *worker) checksum(interval time.Duration) {
 										RequestTimestamp: job.RequestTimestamp,
 										Timestamp:        job.Timestamp,
 										Status:           job.Status,
-										Details:          job.Details,
 									}
 									if err := writeTx.Insert("job", &copy); err != nil {
 										fmt.Println(err)
@@ -175,7 +174,7 @@ func (w *worker) spawn() {
 				c.Execute(func() {
 					ctx, cancel_func := context.WithCancel(context.Background())
 					w.cancel_funcs[current.Id] = cancel_func
-					w.commands[current.Name](ctx, current.Request)
+					w.commands[current.Name](ctx, current)
 					w.cancel_funcs[current.Id] = nil
 				})
 			}
