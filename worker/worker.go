@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-memdb"
@@ -45,6 +46,7 @@ type worker struct {
 	cancel_funcs map[string]context.CancelFunc
 	inmem        *memdb.MemDB
 	scheduler    scheduler.Scheduler
+	mutex        sync.RWMutex
 }
 
 func (w *worker) RegisterCommand(name string, cmd Command) {
@@ -173,9 +175,14 @@ func (w *worker) spawn() {
 				writeTx.Commit()
 				c.Execute(func() {
 					ctx, cancel_func := context.WithCancel(context.Background())
+					w.mutex.Lock()
 					w.cancel_funcs[current.Id] = cancel_func
+					w.mutex.Unlock()
 					w.commands[current.Name](ctx, current)
+					w.mutex.Lock()
 					w.cancel_funcs[current.Id] = nil
+					w.mutex.Unlock()
+
 				})
 			}
 			c.WaitAndClose()
