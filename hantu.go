@@ -1,6 +1,7 @@
 package hantu
 
 import (
+	"errors"
 	"time"
 
 	"github.com/johnjerrico/hantu/scheduler"
@@ -73,17 +74,27 @@ func (w *server) Dequeue(job schema.Job) error {
 }
 
 func (w *server) Queue(job schema.Job) error {
-	tx := w.inmem.Txn(true)
-	copy := schema.Job{
-		Id:               job.Id,
-		Name:             job.Name,
-		Checksum:         job.Checksum,
-		Request:          job.Request,
-		RequestTimestamp: job.RequestTimestamp,
-		Timestamp:        job.Timestamp,
-		Status:           job.Status,
+	rtx := w.inmem.Snapshot().Txn(false)
+	it, err := rtx.Get("job", "id", job.Id)
+	if err != nil {
+		return err
 	}
-	err := tx.Insert("job", &copy)
-	tx.Commit()
-	return err
+	if it.Next() == nil {
+		tx := w.inmem.Txn(true)
+		copy := schema.Job{
+			Id:               job.Id,
+			Name:             job.Name,
+			Checksum:         job.Checksum,
+			Request:          job.Request,
+			RequestTimestamp: job.RequestTimestamp,
+			Timestamp:        job.Timestamp,
+			Status:           job.Status,
+		}
+		err := tx.Insert("job", &copy)
+		tx.Commit()
+		return err
+	} else {
+		return errors.New("already_exists")
+	}
+
 }
