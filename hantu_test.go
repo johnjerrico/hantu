@@ -181,3 +181,30 @@ func TestWorkerChecksum(t *testing.T) {
 	bgworker.Worker().Stop()
 
 }
+
+func TestDoubleQueue(t *testing.T) {
+	bgworker := New(Option{
+		Domain:   "tests",
+		Id:       "1",
+		Max:      3,
+		TTL:      1 * time.Second,
+		Interval: 1 * time.Second,
+	})
+	bgworker.Queue(schema.Job{
+		Id:       "1",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "1",
+	})
+	err := bgworker.Queue(schema.Job{
+		Id:       "1",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "1",
+	})
+	if err == nil {
+		t.Log("should be error due to duplicate")
+		t.Fail()
+	}
+	fmt.Println(err)
+}
