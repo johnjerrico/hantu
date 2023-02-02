@@ -26,6 +26,7 @@ type Server interface {
 	Worker() worker.Worker
 	Dequeue(job schema.Job) error
 	Queue(job schema.Job) error
+	Count() (int, error)
 }
 
 type server struct {
@@ -79,6 +80,7 @@ func (w *server) Queue(job schema.Job) error {
 	if err != nil {
 		return err
 	}
+	rtx.Abort()
 	if it.Next() == nil {
 		tx := w.inmem.Txn(true)
 		copy := schema.Job{
@@ -97,4 +99,18 @@ func (w *server) Queue(job schema.Job) error {
 		return errors.New("already_exists")
 	}
 
+}
+
+func (w *server) Count() (int, error) {
+	rtx := w.inmem.Snapshot().Txn(false)
+	it, err := rtx.Get("job", "id")
+	if err != nil {
+		return -1, err
+	}
+	total := 0
+	for obj := it.Next(); obj != nil; obj = it.Next() {
+		total++
+	}
+	rtx.Abort()
+	return total, nil
 }
