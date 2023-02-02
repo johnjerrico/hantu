@@ -208,3 +208,39 @@ func TestDoubleQueue(t *testing.T) {
 	}
 	fmt.Println(err)
 }
+
+func TestCountJobs(t *testing.T) {
+	bgworker := New(Option{
+		Domain:   "tests",
+		Id:       "1",
+		Max:      3,
+		TTL:      1 * time.Second,
+		Interval: 1 * time.Second,
+	})
+	bgworker.Queue(schema.Job{
+		Id:       "1",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "1",
+	})
+	err := bgworker.Queue(schema.Job{
+		Id:       "2",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "2",
+	})
+	if err != nil {
+		t.Log("should not be error")
+		t.Fail()
+	}
+	total, err := bgworker.Count()
+	if err != nil {
+		t.Log("should not be error")
+		t.Fail()
+	}
+	if total != 2 {
+		t.Log("should be 2 ")
+		t.Fail()
+	}
+	t.Log("total is", total)
+}
