@@ -103,7 +103,9 @@ func (w *worker) checksum(interval time.Duration) {
 					it, _ := tx.Get("job", "id")
 					tobeProcessed := make(map[string][]schema.Job)
 					index := make(map[string]schema.Job)
+					total := 0
 					for obj := it.Next(); obj != nil; obj = it.Next() {
+						total++
 						current := obj.(*schema.Job)
 						if len(tobeProcessed[current.Checksum]) == 0 {
 							tobeProcessed[current.Checksum] = make([]schema.Job, 0)
@@ -112,42 +114,43 @@ func (w *worker) checksum(interval time.Duration) {
 						tobeProcessed[current.Checksum] = append(tobeProcessed[current.Checksum], *current)
 					}
 					tx.Abort()
-					//for checksum_func, pending := range tobeProcessed {
-					for name, checksum_func := range w.checksums {
-						shouldRun, shouldCancel, err := checksum_func(
-							context.Background(),
-							name,
-							tobeProcessed[name],
-						)
-						if err != nil {
-							fmt.Println(err.Error())
-						} else {
-							writeTx := w.inmem.Txn(true)
-							if len(shouldCancel) > 0 {
-								for _, job := range shouldCancel {
-									current := index[job.Id]
-									writeTx.Delete("job", current)
-									w.cancel_funcs[job.Id]()
-									w.cancel_funcs[job.Id] = nil
-								}
-							}
-							if len(shouldRun) > 0 {
-								for _, job := range shouldRun {
-									copy := schema.Job{
-										Id:               job.Id,
-										Name:             job.Name,
-										Checksum:         job.Checksum,
-										Request:          job.Request,
-										RequestTimestamp: job.RequestTimestamp,
-										Timestamp:        job.Timestamp,
-										Status:           job.Status,
-									}
-									if err := writeTx.Insert("job", &copy); err != nil {
-										fmt.Println(err)
+					if total+1 < w.max {
+						for name, checksum_func := range w.checksums {
+							shouldRun, shouldCancel, err := checksum_func(
+								context.Background(),
+								name,
+								tobeProcessed[name],
+							)
+							if err != nil {
+								fmt.Println(err.Error())
+							} else {
+								writeTx := w.inmem.Txn(true)
+								if len(shouldCancel) > 0 {
+									for _, job := range shouldCancel {
+										current := index[job.Id]
+										writeTx.Delete("job", current)
+										w.cancel_funcs[job.Id]()
+										w.cancel_funcs[job.Id] = nil
 									}
 								}
+								if len(shouldRun) > 0 {
+									for _, job := range shouldRun {
+										copy := schema.Job{
+											Id:               job.Id,
+											Name:             job.Name,
+											Checksum:         job.Checksum,
+											Request:          job.Request,
+											RequestTimestamp: job.RequestTimestamp,
+											Timestamp:        job.Timestamp,
+											Status:           job.Status,
+										}
+										if err := writeTx.Insert("job", &copy); err != nil {
+											fmt.Println(err)
+										}
+									}
+								}
+								writeTx.Commit()
 							}
-							writeTx.Commit()
 						}
 					}
 					w.scheduler.Sleep()

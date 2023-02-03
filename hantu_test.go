@@ -130,7 +130,7 @@ func TestWorkerCancel(t *testing.T) {
 
 func TestWorkerChecksum(t *testing.T) {
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 	bgworker := New(Option{
 		Domain:   "tests",
 		Id:       "1",
@@ -145,7 +145,7 @@ func TestWorkerChecksum(t *testing.T) {
 				wg.Done()
 			default:
 				t.Log("Processing : " + " -> " + fmt.Sprintf("%v", request))
-				time.Sleep(10 * time.Second)
+				time.Sleep(2 * time.Second)
 				wg.Done()
 			}
 
@@ -171,6 +171,12 @@ func TestWorkerChecksum(t *testing.T) {
 					Name:     "test",
 					Checksum: "checksum",
 					Request:  "2",
+				},
+				{
+					Id:       "3",
+					Name:     "test",
+					Checksum: "checksum",
+					Request:  "3",
 				},
 			}, nil, nil
 		},
