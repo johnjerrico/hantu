@@ -128,9 +128,13 @@ func (w *worker) checksum(interval time.Duration) {
 								if len(shouldCancel) > 0 {
 									for _, job := range shouldCancel {
 										current := index[job.Id]
-										writeTx.Delete("job", current)
-										w.cancel_funcs[job.Id]()
-										w.cancel_funcs[job.Id] = nil
+										if current.Id != "" {
+											writeTx.Delete("job", current)
+											if w.cancel_funcs[job.Id] != nil {
+												w.cancel_funcs[job.Id]()
+												w.cancel_funcs[job.Id] = nil
+											}
+										}
 									}
 								}
 								if len(shouldRun) > 0 {
