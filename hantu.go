@@ -80,7 +80,7 @@ func (w *server) Queue(job schema.Job) error {
 	if err != nil {
 		return err
 	}
-	rtx.Abort()
+	defer rtx.Abort()
 	if it.Next() == nil {
 		tx := w.inmem.Txn(true)
 		copy := schema.Job{

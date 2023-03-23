@@ -139,18 +139,24 @@ func (w *worker) checksum(interval time.Duration) {
 								}
 								if len(shouldRun) > 0 {
 									for _, job := range shouldRun {
-										copy := schema.Job{
-											Id:               job.Id,
-											Name:             job.Name,
-											Checksum:         job.Checksum,
-											Request:          job.Request,
-											RequestTimestamp: job.RequestTimestamp,
-											Timestamp:        job.Timestamp,
-											Status:           job.Status,
+										rtx := w.inmem.Snapshot().Txn(false)
+										it, _ := rtx.Get("job", "id", job.Id)
+										defer rtx.Abort()
+										if it.Next() == nil {
+											copy := schema.Job{
+												Id:               job.Id,
+												Name:             job.Name,
+												Checksum:         job.Checksum,
+												Request:          job.Request,
+												RequestTimestamp: job.RequestTimestamp,
+												Timestamp:        job.Timestamp,
+												Status:           job.Status,
+											}
+											if err := writeTx.Insert("job", &copy); err != nil {
+												fmt.Println(err)
+											}
 										}
-										if err := writeTx.Insert("job", &copy); err != nil {
-											fmt.Println(err)
-										}
+
 									}
 								}
 								writeTx.Commit()
