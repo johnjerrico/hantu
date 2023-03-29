@@ -187,15 +187,16 @@ func (w *worker) spawn() {
 				writeTx.Delete("job", current)
 				writeTx.Commit()
 				c.Execute(func() {
-					ctx, cancel_func := context.WithCancel(context.Background())
-					w.mutex.Lock()
-					w.cancel_funcs[current.Id] = cancel_func
-					w.mutex.Unlock()
-					w.commands[current.Name](ctx, current)
-					w.mutex.Lock()
-					w.cancel_funcs[current.Id] = nil
-					w.mutex.Unlock()
-
+					if w.commands[current.Name] != nil {
+						ctx, cancel_func := context.WithCancel(context.Background())
+						w.mutex.Lock()
+						w.cancel_funcs[current.Id] = cancel_func
+						w.mutex.Unlock()
+						w.commands[current.Name](ctx, current)
+						w.mutex.Lock()
+						w.cancel_funcs[current.Id] = nil
+						w.mutex.Unlock()
+					}
 				})
 			}
 			c.WaitAndClose()
