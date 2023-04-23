@@ -124,12 +124,14 @@ func (w *worker) checksum(interval time.Duration) {
 							if err != nil {
 								fmt.Println(err.Error())
 							} else {
-								writeTx := w.inmem.Txn(true)
+
 								if len(shouldCancel) > 0 {
 									for _, job := range shouldCancel {
 										current := index[job.Id]
 										if current.Id != "" {
+											writeTx := w.inmem.Txn(true)
 											writeTx.Delete("job", current)
+											writeTx.Commit()
 											if w.cancel_funcs[job.Id] != nil {
 												w.cancel_funcs[job.Id]()
 												w.cancel_funcs[job.Id] = nil
@@ -152,14 +154,16 @@ func (w *worker) checksum(interval time.Duration) {
 												Timestamp:        job.Timestamp,
 												Status:           job.Status,
 											}
+											writeTx := w.inmem.Txn(true)
 											if err := writeTx.Insert("job", &copy); err != nil {
 												fmt.Println(err)
 											}
+											writeTx.Commit()
 										}
 
 									}
 								}
-								writeTx.Commit()
+
 							}
 						}
 					}
