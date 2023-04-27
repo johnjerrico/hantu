@@ -3,6 +3,7 @@ package hantu
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"testing"
 	"time"
@@ -126,6 +127,84 @@ func TestWorkerCancel(t *testing.T) {
 	bgworker.Worker().Stop()
 	//wg.Wait()
 	time.Sleep(29 * time.Second)
+}
+
+func TestPanic(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(6)
+	bgworker := New(Option{
+		Domain:   "tests",
+		Id:       "1",
+		Max:      7,
+		TTL:      1 * time.Second,
+		Interval: 3 * time.Second,
+	})
+	cnt := 0
+	bgworker.Worker().RegisterCommand("test",
+		func(ctx context.Context, request interface{}) {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				job := request.(*schema.Job)
+
+				if job.Id == "1" {
+					panic("test")
+				} else {
+					//time.Sleep(20 * time.Second)
+					fmt.Println("Hello", job.Id)
+					//t.Log("Processing : " + fmt.Sprintf("%v", request))
+
+				}
+
+			}
+			cnt++
+			wg.Done()
+		},
+	)
+
+	bgworker.Worker().Start()
+	bgworker.Queue(schema.Job{
+		Id:       "1",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "1",
+	})
+	bgworker.Queue(schema.Job{
+		Id:       "2",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "2",
+	})
+	bgworker.Queue(schema.Job{
+		Id:       "3",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "3",
+	})
+	bgworker.Queue(schema.Job{
+		Id:       "4",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "4",
+	})
+	bgworker.Queue(schema.Job{
+		Id:       "5",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "5",
+	})
+	bgworker.Queue(schema.Job{
+		Id:       "6",
+		Name:     "test",
+		Checksum: "checksum",
+		Request:  "6",
+	})
+	wg.Wait()
+	bgworker.Worker().Stop()
+	log.Print(cnt)
+
+	//time.Sleep(30 * time.Second)
 }
 
 func TestWorkerChecksum(t *testing.T) {

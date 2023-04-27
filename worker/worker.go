@@ -192,6 +192,11 @@ func (w *worker) spawn() {
 				writeTx.Commit()
 				c.Execute(func() {
 					if w.commands[current.Name] != nil {
+						defer func() {
+							if r := recover(); r != nil {
+								fmt.Println("program recover from panic")
+							}
+						}()
 						ctx, cancel_func := context.WithCancel(context.Background())
 						w.mutex.Lock()
 						w.cancel_funcs[current.Id] = cancel_func
