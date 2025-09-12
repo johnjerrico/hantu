@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"context"
 	"time"
 
 	"github.com/hashicorp/go-memdb"
@@ -14,6 +15,7 @@ type Job struct {
 	Timestamp        string
 	Status           string
 	Delay            time.Duration
+	Ctx              context.Context
 }
 
 func Schema() *memdb.DBSchema {
