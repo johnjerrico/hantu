@@ -37,7 +37,9 @@ type worker struct {
 }
 
 func (w *worker) Register(name string, cmd Command) {
-	w.commands[name] = cmd
+	if w.commands[name] == nil {
+		w.commands[name] = cmd
+	}
 }
 
 func (w *worker) Start() {
