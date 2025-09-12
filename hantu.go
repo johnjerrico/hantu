@@ -86,11 +86,11 @@ func (w *server) Queue(job schema.Job) error {
 		copy := schema.Job{
 			Id:               job.Id,
 			Name:             job.Name,
-			Checksum:         job.Checksum,
 			Request:          job.Request,
 			RequestTimestamp: job.RequestTimestamp,
 			Timestamp:        job.Timestamp,
 			Status:           job.Status,
+			Delay:            job.Delay,
 		}
 		err := tx.Insert("job", &copy)
 		tx.Commit()

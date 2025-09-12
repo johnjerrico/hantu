@@ -14,7 +14,7 @@ Provides a simple configurable background worker library which works by using fi
 		bgworker.Worker().Register(
 		"test",
 		context.Background(),
-	    func (ctx context.Context, request interface{}) (interface{},error) {
+	    func (ctx context.Context, request any) (any,error) {
 			time.Sleep(5 * time.Second)
 			fmt.Println("Processing: " + request.(string))
 			wg.Done()
@@ -94,7 +94,7 @@ func main(){
    bgworker.Worker().Register(
 	"test",
 	context.Background(),
-	func (ctx context.Context, request interface{}) (interface{},error) {
+	func (ctx context.Context, request any) (any,error) {
 		time.Sleep(5 * time.Second)
 		fmt.Println("Processing: " + request.(string))
 		wg.Done()

@@ -1,15 +1,19 @@
 package schema
 
-import "github.com/hashicorp/go-memdb"
+import (
+	"time"
+
+	"github.com/hashicorp/go-memdb"
+)
 
 type Job struct {
 	Id               string
 	Name             string
-	Checksum         string
-	Request          interface{}
+	Request          any
 	RequestTimestamp string
 	Timestamp        string
 	Status           string
+	Delay            time.Duration
 }
 
 func Schema() *memdb.DBSchema {
