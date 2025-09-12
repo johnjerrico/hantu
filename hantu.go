@@ -4,7 +4,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/johnjerrico/hantu/scheduler"
 	"github.com/johnjerrico/hantu/schema"
 	"github.com/johnjerrico/hantu/worker"
 
@@ -42,7 +41,7 @@ func New(opt Option) Server {
 	if err != nil {
 		panic(err)
 	}
-	sch := scheduler.New(opt.RedisHost, opt.RedisPort, opt.RedisTTL)
+	//sch := scheduler.New(opt.RedisHost, opt.RedisPort, opt.RedisTTL)
 	return &server{
 		w: worker.New(
 			opt.Domain,
@@ -50,7 +49,7 @@ func New(opt Option) Server {
 			opt.Max,
 			opt.Interval,
 			db,
-			sch,
+			//sch,
 		),
 		inmem: db,
 		opt:   opt,
@@ -59,6 +58,7 @@ func New(opt Option) Server {
 func Singleton(opt Option) Server {
 	if instance == nil {
 		instance = New(opt)
+		instance.Worker().Start()
 	}
 	return instance
 }

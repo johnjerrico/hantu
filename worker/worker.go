@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-memdb"
-	"github.com/johnjerrico/hantu/scheduler"
 	"github.com/johnjerrico/hantu/schema"
 	"github.com/korovkin/limiter"
 )
@@ -22,7 +21,7 @@ type Worker interface {
 	RegisterChecksum(name string, checksum Checksum)
 }
 
-func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB, scheduler scheduler.Scheduler) Worker {
+func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB /*, scheduler scheduler.Scheduler*/) Worker {
 	return &worker{
 		max:          max,
 		interval:     interval,
@@ -31,13 +30,13 @@ func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB,
 		exit:         make(chan byte),
 		cancel_funcs: make(map[string]context.CancelFunc),
 		inmem:        inmem,
-		scheduler:    scheduler,
+		//scheduler:    scheduler,
 	}
 }
 
 type worker struct {
-	id           string
-	domain       string
+	//id           string
+	//domain       string
 	max          int
 	interval     time.Duration
 	commands     map[string]Command
@@ -45,8 +44,8 @@ type worker struct {
 	exit         chan byte
 	cancel_funcs map[string]context.CancelFunc
 	inmem        *memdb.MemDB
-	scheduler    scheduler.Scheduler
-	mutex        sync.RWMutex
+	//scheduler    scheduler.Scheduler
+	mutex sync.RWMutex
 }
 
 func (w *worker) RegisterCommand(name string, cmd Command) {
@@ -58,8 +57,9 @@ func (w *worker) RegisterChecksum(name string, checksum Checksum) {
 }
 
 func (w *worker) Start() {
-	w.scheduler.Register(w.domain, w.id)
-	w.checksum(w.interval)
+	/* disabling distributed feature
+	//w.scheduler.Register(w.domain, w.id)
+	//w.checksum(w.interval)*/
 	go w.spawn()
 }
 
@@ -79,11 +79,12 @@ func (w *worker) Stop() {
 		writeTx.Commit()
 	}
 	tx.Abort()
-	w.scheduler.Shutdown()
+	//w.scheduler.Shutdown()
 	w.exit <- byte('1')
 
 }
 
+/*
 func (w *worker) checksum(interval time.Duration) {
 	if interval < 1 {
 		return
@@ -173,7 +174,7 @@ func (w *worker) checksum(interval time.Duration) {
 			time.Sleep(time.Millisecond)
 		}
 	}()
-}
+} */
 
 func (w *worker) spawn() {
 	var c *limiter.ConcurrencyLimiter
