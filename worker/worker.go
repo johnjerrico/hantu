@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-memdb"
@@ -11,7 +10,7 @@ import (
 	"github.com/korovkin/limiter"
 )
 
-type Command func(ctx context.Context, request interface{})
+type Command func(ctx context.Context, request any)
 
 type Worker interface {
 	Start()
@@ -19,25 +18,22 @@ type Worker interface {
 	Register(name string, cmd Command)
 }
 
-func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB /*, scheduler scheduler.Scheduler*/) Worker {
+func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB) Worker {
 	return &worker{
-		max:          max,
-		interval:     interval,
-		commands:     make(map[string]Command),
-		exit:         make(chan byte),
-		cancel_funcs: make(map[string]context.CancelFunc),
-		inmem:        inmem,
+		max:      max,
+		interval: interval,
+		commands: make(map[string]Command),
+		exit:     make(chan byte),
+		inmem:    inmem,
 	}
 }
 
 type worker struct {
-	max          int
-	interval     time.Duration
-	commands     map[string]Command
-	exit         chan byte
-	cancel_funcs map[string]context.CancelFunc
-	inmem        *memdb.MemDB
-	mutex        sync.RWMutex
+	max      int
+	interval time.Duration
+	commands map[string]Command
+	exit     chan byte
+	inmem    *memdb.MemDB
 }
 
 func (w *worker) Register(name string, cmd Command) {
@@ -49,12 +45,6 @@ func (w *worker) Start() {
 }
 
 func (w *worker) Stop() {
-
-	for _, item := range w.cancel_funcs {
-		if item != nil {
-			item()
-		}
-	}
 	tx := w.inmem.Snapshot().Txn(false)
 	it, _ := tx.Get("job", "id")
 	for obj := it.Next(); obj != nil; obj = it.Next() {
@@ -90,14 +80,10 @@ func (w *worker) spawn() {
 								fmt.Println("program recover from panic")
 							}
 						}()
-						ctx, cancel_func := context.WithCancel(context.Background())
-						w.mutex.Lock()
-						w.cancel_funcs[current.Id] = cancel_func
-						w.mutex.Unlock()
-						w.commands[current.Name](ctx, current)
-						w.mutex.Lock()
-						w.cancel_funcs[current.Id] = nil
-						w.mutex.Unlock()
+						w.commands[current.Name](current.Ctx, current.Request)
+						if current.Delay > 0 {
+							time.Sleep(current.Delay)
+						}
 					}
 				})
 			}
