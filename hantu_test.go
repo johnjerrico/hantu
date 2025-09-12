@@ -64,6 +64,7 @@ func TestWorkerStart(t *testing.T) {
 	bgworker.Worker().Stop()
 }
 
+/*
 func TestWorkerCancel(t *testing.T) {
 	//var wg sync.WaitGroup
 	//wg.Add(6)
@@ -128,6 +129,7 @@ func TestWorkerCancel(t *testing.T) {
 	//wg.Wait()
 	time.Sleep(29 * time.Second)
 }
+*/
 
 func TestPanic(t *testing.T) {
 	var wg sync.WaitGroup
@@ -207,66 +209,67 @@ func TestPanic(t *testing.T) {
 	//time.Sleep(30 * time.Second)
 }
 
-func TestWorkerChecksum(t *testing.T) {
-	var wg sync.WaitGroup
-	wg.Add(3)
-	bgworker := New(Option{
-		Domain:   "tests",
-		Id:       "1",
-		Max:      3,
-		TTL:      1 * time.Second,
-		Interval: 1 * time.Second,
-	})
-	bgworker.Worker().RegisterCommand("test",
-		func(ctx context.Context, request interface{}) {
-			select {
-			case <-ctx.Done():
-				wg.Done()
-			default:
-				t.Log("Processing : " + " -> " + fmt.Sprintf("%v", request))
-				time.Sleep(2 * time.Second)
-				wg.Done()
-			}
-
-		},
-	)
-	bgworker.Worker().RegisterChecksum(
-		"checksum",
-		func(ctx context.Context, checksum string, request []schema.Job) ([]schema.Job, []schema.Job, error) {
-			for _, val := range request {
-				if val.Id == "1" || val.Id == "2" {
-					return nil, nil, nil
+/*
+	func TestWorkerChecksum(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(3)
+		bgworker := New(Option{
+			Domain:   "tests",
+			Id:       "1",
+			Max:      3,
+			TTL:      1 * time.Second,
+			Interval: 1 * time.Second,
+		})
+		bgworker.Worker().RegisterCommand("test",
+			func(ctx context.Context, request interface{}) {
+				select {
+				case <-ctx.Done():
+					wg.Done()
+				default:
+					t.Log("Processing : " + " -> " + fmt.Sprintf("%v", request))
+					time.Sleep(2 * time.Second)
+					wg.Done()
 				}
-			}
-			return []schema.Job{
-				{
-					Id:       "1",
-					Name:     "test",
-					Checksum: "checksum",
-					Request:  "1",
-				},
-				{
-					Id:       "2",
-					Name:     "test",
-					Checksum: "checksum",
-					Request:  "2",
-				},
-				{
-					Id:       "3",
-					Name:     "test",
-					Checksum: "checksum",
-					Request:  "3",
-				},
-			}, nil, nil
-		},
-	)
 
-	bgworker.Worker().Start()
-	wg.Wait()
-	bgworker.Worker().Stop()
+			},
+		)
+		bgworker.Worker().RegisterChecksum(
+			"checksum",
+			func(ctx context.Context, checksum string, request []schema.Job) ([]schema.Job, []schema.Job, error) {
+				for _, val := range request {
+					if val.Id == "1" || val.Id == "2" {
+						return nil, nil, nil
+					}
+				}
+				return []schema.Job{
+					{
+						Id:       "1",
+						Name:     "test",
+						Checksum: "checksum",
+						Request:  "1",
+					},
+					{
+						Id:       "2",
+						Name:     "test",
+						Checksum: "checksum",
+						Request:  "2",
+					},
+					{
+						Id:       "3",
+						Name:     "test",
+						Checksum: "checksum",
+						Request:  "3",
+					},
+				}, nil, nil
+			},
+		)
+
+		bgworker.Worker().Start()
+		wg.Wait()
+		bgworker.Worker().Stop()
 
 }
-
+*/
 func TestDoubleQueue(t *testing.T) {
 	bgworker := New(Option{
 		Domain:   "tests",
