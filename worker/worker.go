@@ -88,10 +88,10 @@ func (w *worker) spawn() {
 								fmt.Println("program recover from panic")
 							}
 						}()
-						w.commands[current.Name](current.Ctx, current.Request)
 						if current.Delay > 0 {
 							time.Sleep(current.Delay)
 						}
+						w.commands[current.Name](current.Ctx, current.Request)
 					}
 				})
 			}
