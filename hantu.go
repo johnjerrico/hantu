@@ -2,7 +2,6 @@ package hantu
 
 import (
 	"errors"
-	"time"
 
 	"github.com/johnjerrico/hantu/schema"
 	"github.com/johnjerrico/hantu/worker"
@@ -11,14 +10,9 @@ import (
 )
 
 type Option struct {
-	Id        string
-	Domain    string
-	RedisHost string
-	RedisPort string
-	RedisTTL  uint64
-	Interval  time.Duration
-	TTL       time.Duration
-	Max       int
+	Id     string
+	Domain string
+	Max    int
 }
 
 type Server interface {
@@ -47,7 +41,6 @@ func New(opt Option) Server {
 			opt.Domain,
 			opt.Id,
 			opt.Max,
-			opt.Interval,
 			db,
 			//sch,
 		),
