@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-memdb"
@@ -34,10 +35,15 @@ type worker struct {
 	commands map[string]Command
 	exit     chan byte
 	inmem    *memdb.MemDB
+	mu       sync.Mutex
 }
 
 func (w *worker) Register(name string, cmd Command) {
-	w.commands[name] = cmd
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.commands[name] == nil {
+		w.commands[name] = cmd
+	}
 }
 
 func (w *worker) Start() {
@@ -74,16 +80,18 @@ func (w *worker) spawn() {
 				writeTx.Delete("job", current)
 				writeTx.Commit()
 				c.Execute(func() {
+					w.mu.Lock()
+					defer w.mu.Unlock()
 					if w.commands[current.Name] != nil {
 						defer func() {
 							if r := recover(); r != nil {
 								fmt.Println("program recover from panic")
 							}
 						}()
-						w.commands[current.Name](current.Ctx, current.Request)
 						if current.Delay > 0 {
 							time.Sleep(current.Delay)
 						}
+						w.commands[current.Name](current.Ctx, current.Request)
 					}
 				})
 			}
