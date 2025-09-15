@@ -6,7 +6,6 @@ import (
 	"log"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/johnjerrico/hantu/schema"
 )
@@ -18,7 +17,6 @@ func TestWorkerStart(t *testing.T) {
 		Domain: "tests",
 		Id:     "1",
 		Max:    7,
-		TTL:    5 * time.Second,
 	})
 	bgworker.Worker().Register("test",
 		func(ctx context.Context, request any) {
@@ -68,11 +66,9 @@ func TestPanic(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(6)
 	bgworker := New(Option{
-		Domain:   "tests",
-		Id:       "1",
-		Max:      7,
-		TTL:      1 * time.Second,
-		Interval: 3 * time.Second,
+		Domain: "tests",
+		Id:     "1",
+		Max:    7,
 	})
 	cnt := 0
 	bgworker.Worker().Register("test",
@@ -138,11 +134,9 @@ func TestPanic(t *testing.T) {
 
 func TestDoubleQueue(t *testing.T) {
 	bgworker := New(Option{
-		Domain:   "tests",
-		Id:       "1",
-		Max:      3,
-		TTL:      1 * time.Second,
-		Interval: 1 * time.Second,
+		Domain: "tests",
+		Id:     "1",
+		Max:    3,
 	})
 	bgworker.Queue(schema.Job{
 		Id:   "1",
@@ -165,11 +159,9 @@ func TestDoubleQueue(t *testing.T) {
 
 func TestCountJobs(t *testing.T) {
 	bgworker := New(Option{
-		Domain:   "tests",
-		Id:       "1",
-		Max:      3,
-		TTL:      1 * time.Second,
-		Interval: 1 * time.Second,
+		Domain: "tests",
+		Id:     "1",
+		Max:    3,
 	})
 	bgworker.Queue(schema.Job{
 		Id:   "1",

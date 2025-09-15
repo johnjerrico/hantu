@@ -19,10 +19,12 @@ type Worker interface {
 	Register(name string, cmd Command)
 }
 
-func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB) Worker {
+func New(domain, id string, max int, inmem *memdb.MemDB) Worker {
+	if max == 0 {
+		max = 10
+	}
 	return &worker{
 		max:      max,
-		interval: interval,
 		commands: make(map[string]Command),
 		exit:     make(chan byte),
 		inmem:    inmem,
@@ -31,7 +33,6 @@ func New(domain, id string, max int, interval time.Duration, inmem *memdb.MemDB)
 
 type worker struct {
 	max      int
-	interval time.Duration
 	commands map[string]Command
 	exit     chan byte
 	inmem    *memdb.MemDB
