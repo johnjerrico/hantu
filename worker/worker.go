@@ -92,7 +92,9 @@ func (w *worker) spawn() {
 						if current.Delay > 0 {
 							time.Sleep(current.Delay)
 						}
-						w.commands[current.Name](current.Ctx, current.Request)
+						ctx, cancelFunc := context.WithDeadline(context.Background(), time.Now().Add(current.Delay))
+						defer cancelFunc()
+						w.commands[current.Name](ctx, current.Request)
 					}
 				})
 			}
