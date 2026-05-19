@@ -29,6 +29,11 @@ func Schema() *memdb.DBSchema {
 						Unique:  true,
 						Indexer: &memdb.StringFieldIndex{Field: "Id"},
 					},
+					"status": {
+						Name:    "status",
+						Unique:  false,
+						Indexer: &memdb.StringFieldIndex{Field: "Status"},
+					},
 				},
 			},
 		},

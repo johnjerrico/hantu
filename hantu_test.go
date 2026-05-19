@@ -135,7 +135,7 @@ func TestPanic(t *testing.T) {
 func TestDoubleQueue(t *testing.T) {
 	bgworker := New(Option{
 		Domain: "tests",
-		Id:     "1",
+		Id:     "test",
 		Max:    3,
 	})
 	bgworker.Queue(schema.Job{
@@ -160,7 +160,7 @@ func TestDoubleQueue(t *testing.T) {
 func TestCountJobs(t *testing.T) {
 	bgworker := New(Option{
 		Domain: "tests",
-		Id:     "1",
+		Id:     "test",
 		Max:    3,
 	})
 	bgworker.Queue(schema.Job{
